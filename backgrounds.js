@@ -50,8 +50,7 @@ function applyBackground(backgroundName) {
     wall.style.backgroundPosition = "center";
     wall.style.backgroundAttachment = "fixed";
   } else if (backgroundName === "sunset") {
-    const sunsetImage = drawSunsetBackground();
-    wall.style.backgroundImage = `url(${sunsetImage})`;
+    wall.style.backgroundImage = "url('backgrounds/sunset.jpg')";
     wall.style.backgroundSize = "cover";
     wall.style.backgroundPosition = "center";
     wall.style.backgroundAttachment = "fixed";

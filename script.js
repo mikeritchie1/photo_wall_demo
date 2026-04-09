@@ -147,6 +147,16 @@ function shuffleArray(items) {
   return shuffled;
 }
 
+function resolveImagePath(image, folder) {
+  if (image.path) {
+    return image.path;
+  }
+  if (folder.toLowerCase() === "various") {
+    return image.filename;
+  }
+  return `${folder}/${image.filename}`;
+}
+
 function buildImagePool() {
   if (!manifest) {
     return [];
@@ -157,12 +167,13 @@ function buildImagePool() {
   if (selectedFolder === "all") {
     for (const [folder, images] of Object.entries(manifest)) {
       for (const image of images) {
+        const relativePath = resolveImagePath(image, folder);
         pool.push({
-          filename: `images/${folder}/${image.filename}`,
+          filename: `images/${relativePath}`,
           text: image.text || "",
           folder,
           date: image.date || "",
-          _key: `${folder}/${image.filename}`
+          _key: relativePath
         });
       }
     }
@@ -171,12 +182,13 @@ function buildImagePool() {
 
   const images = manifest[selectedFolder] || [];
   for (const image of images) {
+    const relativePath = resolveImagePath(image, selectedFolder);
     pool.push({
-      filename: `images/${selectedFolder}/${image.filename}`,
+      filename: `images/${relativePath}`,
       text: image.text || "",
       folder: selectedFolder,
       date: image.date || "",
-      _key: `${selectedFolder}/${image.filename}`
+      _key: relativePath
     });
   }
 

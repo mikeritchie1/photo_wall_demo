@@ -135,6 +135,7 @@ def build_manifest():
     root_level_images = [
         {
             "filename": file.name,
+            "path": file.name,
             "text": "",
             "date": get_capture_date(file),
         }
@@ -151,6 +152,7 @@ def build_manifest():
         image_files = [
             {
                 "filename": file.name,
+                "path": f"{folder.name}/{file.name}",
                 "text": "",
                 "date": get_capture_date(file),
             }
