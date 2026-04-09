@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Floating Photos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wall" id="wall">
+    <div class="light-stream" id="lights-left"></div>
+    <div class="light-stream" id="lights-right"></div>
+
+    <div class="photo-container" id="photo1-container">
+      <img src="images/photo1.png" alt="Photo 1" class="photo" id="photo1" />
+      <div class="photo-text" id="photo1-text"></div>
+    </div>
+    <div class="photo-container" id="photo2-container">
+      <img src="images/photo1.png" alt="Photo 2" class="photo" id="photo2" />
+      <div class="photo-text" id="photo2-text"></div>
+    </div>
+    <div class="photo-container" id="photo3-container">
+      <img src="images/photo1.png" alt="Photo 3" class="photo" id="photo3" />
+      <div class="photo-text" id="photo3-text"></div>
+    </div>
+    <div class="photo-container" id="photo4-container">
+      <img src="images/photo1.png" alt="Photo 4" class="photo" id="photo4" />
+      <div class="photo-text" id="photo4-text"></div>
+    </div>
+    <div class="photo-container" id="photo9-container">
+      <img src="images/photo1.png" alt="Photo 9" class="photo" id="photo9" />
+      <div class="photo-text" id="photo9-text"></div>
+    </div>
+    <div class="photo-container" id="photo10-container">
+      <img src="images/photo1.png" alt="Photo 10" class="photo" id="photo10" />
+      <div class="photo-text" id="photo10-text"></div>
+    </div>
+
+    <div class="photo-container" id="photo5-container">
+      <img src="images/photo1.png" alt="Photo 5" class="photo" id="photo5" />
+      <div class="photo-text" id="photo5-text"></div>
+    </div>
+    <div class="photo-container" id="photo6-container">
+      <img src="images/photo1.png" alt="Photo 6" class="photo" id="photo6" />
+      <div class="photo-text" id="photo6-text"></div>
+    </div>
+    <div class="photo-container" id="photo7-container">
+      <img src="images/photo1.png" alt="Photo 7" class="photo" id="photo7" />
+      <div class="photo-text" id="photo7-text"></div>
+    </div>
+    <div class="photo-container" id="photo8-container">
+      <img src="images/photo1.png" alt="Photo 8" class="photo" id="photo8" />
+      <div class="photo-text" id="photo8-text"></div>
+    </div>
+    <div class="photo-container" id="photo11-container">
+      <img src="images/photo1.png" alt="Photo 11" class="photo" id="photo11" />
+      <div class="photo-text" id="photo11-text"></div>
+    </div>
+    <div class="photo-container" id="photo12-container">
+      <img src="images/photo1.png" alt="Photo 12" class="photo" id="photo12" />
+      <div class="photo-text" id="photo12-text"></div>
+    </div>
+  </div>
+
+  <div id="controls" class="controls hidden">
+    <div class="control-row">
+      <div class="control-group">
+        <label for="folderSelect">Image Folder</label>
+        <select id="folderSelect"></select>
+      </div>
+
+      <div class="control-group">
+        <label for="sizeSlider">Photo Size</label>
+        <input type="range" id="sizeSlider" min="120" max="720" value="420" />
+      </div>
+
+      <div class="control-group">
+        <label for="speedSlider">Speed</label>
+        <input type="range" id="speedSlider" min="0" max="4" step="0.05" value="0.5" />
+        <div style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
+          <input type="checkbox" id="reverseCheckbox" />
+          <label for="reverseCheckbox" style="font-size: 12px;">Reverse</label>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="swaySlider">Sway</label>
+        <input type="range" id="swaySlider" min="0" max="10" step="0.1" value="3" />
+      </div>
+    </div>
+
+    <div class="control-row">
+      <div class="control-group">
+        <label for="backgroundSelect">Background</label>
+        <select id="backgroundSelect"></select>
+      </div>
+
+      <div class="control-group">
+        <label for="lightColorSelect">Light Color</label>
+        <select id="lightColorSelect">
+          <option value="warm">Warm</option>
+          <option value="cool">Cool</option>
+          <option value="red">Red</option>
+          <option value="blue">Blue</option>
+          <option value="green">Green</option>
+          <option value="rainbow">Rainbow</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="stringColorSelect">String Color</label>
+        <select id="stringColorSelect">
+          <option value="brown">Brown</option>
+          <option value="black">Black</option>
+          <option value="white">White</option>
+          <option value="red">Red</option>
+          <option value="blue">Blue</option>
+          <option value="green">Green</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="textSelect">Text</label>
+        <select id="textSelect">
+          <option value="auto">Auto</option>
+          <option value="disabled">Disable</option>
+          <option value="custom">Custom</option>
+          <option value="name">Name</option>
+          <option value="date">Date</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="control-row">
+      <button id="resetControlsBtn" type="button">Reset Controls</button>
+    </div>
+  </div>
+
+  <script src="backgrounds.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

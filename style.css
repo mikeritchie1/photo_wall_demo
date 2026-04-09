@@ -1,0 +1,177 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: black;
+}
+
+:root {
+  --photo-width: 420px;
+}
+
+body {
+  position: relative;
+  background: black;
+}
+
+.wall {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: black;
+  overflow: hidden;
+}
+
+/* Fairy light streams */
+.light-stream {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 70px;
+  height: 2000px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.light-wire {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to bottom,
+    rgba(120, 90, 40, 0.9),
+    rgba(80, 60, 30, 0.85)
+  );
+  box-shadow: 0 0 6px rgba(255, 210, 120, 0.12);
+  border-radius: 999px;
+}
+
+.bulb {
+  position: absolute;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff6cc 0%, #ffd36a 45%, #ffb347 100%);
+  box-shadow:
+    0 0 10px rgba(255, 210, 100, 0.95),
+    0 0 22px rgba(255, 190, 80, 0.6),
+    0 0 40px rgba(255, 180, 80, 0.25);
+}
+
+.bulb::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 6px;
+  transform: translateX(-50%);
+  border-radius: 3px 3px 1px 1px;
+  background: #5b6b42;
+}
+
+/* Photos */
+.photo-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  z-index: 2;
+}
+
+.photo-container .photo {
+  max-width: var(--photo-width);
+  max-height: var(--photo-width);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border: 10px solid white;
+  border-bottom: 30px solid white;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.photo-container .photo-text {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(var(--photo-width) - 140px);
+  color: black;
+  text-align: center;
+  font-family: 'Dancing Script', cursive;
+  font-size: 18px;
+  font-weight: 400;
+  z-index: 3;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Controls */
+.controls {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 20, 0.9);
+  color: white;
+  padding: 16px 20px;
+  border-radius: 14px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  font-family: Arial, sans-serif;
+  z-index: 1000;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+
+.control-row {
+  display: flex;
+  gap: 18px;
+}
+
+.controls.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.control-group label {
+  font-size: 14px;
+}
+
+.controls input[type="range"] {
+  width: 180px;
+}
+
+#resetControlsBtn {
+  background: #2f2f2f;
+  color: #ffffff;
+  border: 1px solid #5a5a5a;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#resetControlsBtn:hover {
+  background: #3b3b3b;
+}

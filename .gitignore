@@ -1,0 +1,4 @@
+images/**
+images/manifest.json
+__pycache__/
+*.py[cod]
