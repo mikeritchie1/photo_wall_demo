@@ -1,4 +1,5 @@
 images/**
+!images/.gitkeep
 images/manifest.json
 __pycache__/
 *.py[cod]

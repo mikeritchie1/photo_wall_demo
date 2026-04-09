@@ -19,6 +19,7 @@ except ImportError:
 PROJECT_ROOT = Path(__file__).parent
 IMAGES_DIR = PROJECT_ROOT / "images"
 MANIFEST_PATH = IMAGES_DIR / "manifest.json"
+ROOT_MISC_FOLDER_NAME = "Various"
 
 # Allowed image file extensions
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
@@ -130,6 +131,18 @@ def build_manifest():
     if not IMAGES_DIR.exists():
         print(f"Images folder not found: {IMAGES_DIR}")
         return
+
+    root_level_images = [
+        {
+            "filename": file.name,
+            "text": "",
+            "date": get_capture_date(file),
+        }
+        for file in sorted(IMAGES_DIR.iterdir())
+        if file.is_file() and file.suffix.lower() in IMAGE_EXTENSIONS
+    ]
+    if root_level_images:
+        manifest[ROOT_MISC_FOLDER_NAME] = root_level_images
 
     for folder in sorted(IMAGES_DIR.iterdir()):
         if not folder.is_dir():
