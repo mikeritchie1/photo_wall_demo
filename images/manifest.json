@@ -1,0 +1,10 @@
+﻿{
+  "demo": [
+    {
+      "filename": "test.jpg",
+      "path": "demo/test.jpg",
+      "text": "Test Photo",
+      "date": "1st January 2026"
+    }
+  ]
+}
