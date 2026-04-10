@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from PIL import Image
@@ -27,14 +27,24 @@ MANIFEST_PATH = IMAGES_DIR / "manifest.json"
 ROOT_MISC_FOLDER_NAME = "Various"
 TARGET_FOLDERS = None
 DELETE_ORIGINAL_HEIC = True
+DELETE_CONSUMED_SIDECAR_JSON = False
 
 # Allowed image file extensions
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 HEIC_EXTENSIONS = {".heic", ".heif"}
 
 
+def format_display_date(dt: datetime) -> str:
+    day = dt.day
+    if 10 <= (day % 100) <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{day}{suffix} {dt.strftime('%B %Y')}"
+
+
 def format_file_mtime(file: Path) -> str:
-    return datetime.fromtimestamp(file.stat().st_mtime).strftime("%Y-%m-%d")
+    return format_display_date(datetime.fromtimestamp(file.stat().st_mtime))
 
 
 def parse_exif_datetime(raw_value) -> str | None:
@@ -51,7 +61,7 @@ def parse_exif_datetime(raw_value) -> str | None:
 
     for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y:%m:%d", "%Y-%m-%d"):
         try:
-            return datetime.strptime(normalized, fmt).strftime("%Y-%m-%d")
+            return format_display_date(datetime.strptime(normalized, fmt))
         except ValueError:
             continue
     return None
@@ -71,7 +81,7 @@ def parse_xmp_datetime(raw_value) -> str | None:
         return None
 
     try:
-        return datetime.strptime(match.group(0), "%Y-%m-%d").strftime("%Y-%m-%d")
+        return format_display_date(datetime.strptime(match.group(0), "%Y-%m-%d"))
     except ValueError:
         return None
 
@@ -147,6 +157,94 @@ def is_targeted_file(file: Path) -> bool:
     if TARGET_FOLDERS is None:
         return True
     return relative.parts[0] in TARGET_FOLDERS
+
+def load_json_with_fallbacks(path: Path):
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return None
+
+    for encoding in ("utf-8-sig", "utf-8", "utf-16", "cp1252"):
+        try:
+            return json.loads(raw.decode(encoding))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+    return None
+
+def get_sidecar_candidates_for_image(image_file: Path):
+    stem = image_file.stem
+    suffix = image_file.suffix
+    return [
+        f"{stem}{suffix}".lower(),
+        stem.lower(),
+        f"{stem}.heic".lower(),
+        f"{stem}.heif".lower(),
+    ]
+
+def find_matching_sidecars(image_file: Path, sidecar_files):
+    candidates = get_sidecar_candidates_for_image(image_file)
+    matches = []
+    for sidecar in sidecar_files:
+        sidecar_name = sidecar.name.lower()
+        sidecar_base = sidecar.stem.lower()
+        if any(sidecar_name.startswith(candidate) for candidate in candidates):
+            matches.append(sidecar)
+            continue
+        if any(candidate.startswith(sidecar_base) for candidate in candidates):
+            matches.append(sidecar)
+    return matches
+
+def get_sidecar_metadata(sidecar_files):
+    description = ""
+    photo_taken = None
+    consumed = []
+
+    for sidecar in sidecar_files:
+        data = load_json_with_fallbacks(sidecar)
+        if not isinstance(data, dict):
+            continue
+
+        consumed.append(sidecar)
+
+        raw_description = data.get("description")
+        if isinstance(raw_description, str) and raw_description.strip():
+            description = raw_description.strip()
+
+        photo_taken_time = data.get("photoTakenTime")
+        if isinstance(photo_taken_time, dict):
+            timestamp = photo_taken_time.get("timestamp")
+            if timestamp is not None:
+                try:
+                    dt = datetime.fromtimestamp(int(str(timestamp)), timezone.utc)
+                    photo_taken = format_display_date(dt)
+                except (ValueError, TypeError, OSError, OverflowError):
+                    photo_taken = None
+
+            if not photo_taken:
+                formatted = photo_taken_time.get("formatted")
+                if isinstance(formatted, str) and formatted.strip():
+                    formatted = formatted.strip()
+                    match = re.search(r"([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4})", formatted)
+                    if match:
+                        parsed_date = None
+                        for fmt in ("%b %d, %Y", "%B %d, %Y"):
+                            try:
+                                parsed_date = datetime.strptime(match.group(1), fmt)
+                                break
+                            except ValueError:
+                                continue
+                        if parsed_date:
+                            photo_taken = format_display_date(parsed_date)
+                    else:
+                        iso_match = re.search(r"\d{4}-\d{2}-\d{2}", formatted)
+                        if iso_match:
+                            try:
+                                parsed_iso = datetime.strptime(iso_match.group(0), "%Y-%m-%d")
+                                photo_taken = format_display_date(parsed_iso)
+                            except ValueError:
+                                photo_taken = None
+
+    return description, photo_taken, consumed
 
 def convert_heic_to_jpg(source_file: Path, target_file: Path) -> bool:
     if Image is None or pillow_heif is None:
@@ -246,18 +344,50 @@ def build_manifest():
 
     ensure_heic_conversions()
 
-    root_level_images = [
-        {
-            "filename": file.name,
-            "path": file.name,
-            "text": "",
-            "date": get_capture_date(file),
-        }
-        for file in sorted(IMAGES_DIR.iterdir())
-        if file.is_file() and file.suffix.lower() in IMAGE_EXTENSIONS
-    ]
-    if root_level_images:
-        manifest[ROOT_MISC_FOLDER_NAME] = root_level_images
+    # Include images directly inside `images/` under a catch-all folder.
+    # This supports sidecar metadata the same way album subfolders do.
+    if TARGET_FOLDERS is None:
+        root_json_sidecars = [
+            file
+            for file in sorted(IMAGES_DIR.iterdir())
+            if file.is_file()
+            and file.suffix.lower() == ".json"
+            and file.name.lower() not in {"manifest.json", "metadata.json"}
+        ]
+
+        root_consumed_sidecars = set()
+        root_image_files = []
+        for file in sorted(IMAGES_DIR.iterdir()):
+            if not file.is_file() or file.suffix.lower() not in IMAGE_EXTENSIONS:
+                continue
+            if file.name.endswith(".browser.jpg"):
+                continue
+
+            sidecar_matches = find_matching_sidecars(file, root_json_sidecars)
+            custom_text, taken_time, consumed = get_sidecar_metadata(sidecar_matches)
+            for matched_sidecar in sidecar_matches:
+                root_consumed_sidecars.add(matched_sidecar)
+            for parsed_sidecar in consumed:
+                root_consumed_sidecars.add(parsed_sidecar)
+
+            root_image_files.append(
+                {
+                    "filename": file.name,
+                    "path": file.name,
+                    "text": custom_text,
+                    "date": taken_time or get_capture_date(file),
+                }
+            )
+
+        if root_image_files:
+            manifest[ROOT_MISC_FOLDER_NAME] = root_image_files
+
+        if DELETE_CONSUMED_SIDECAR_JSON:
+            for sidecar in sorted(root_consumed_sidecars):
+                try:
+                    sidecar.unlink()
+                except OSError as error:
+                    print(f"Failed to delete sidecar {sidecar}: {error}")
 
     for folder in sorted(IMAGES_DIR.iterdir()):
         if not folder.is_dir():
@@ -265,25 +395,57 @@ def build_manifest():
         if TARGET_FOLDERS is not None and folder.name not in TARGET_FOLDERS:
             continue
 
-        image_files = [
-            {
-                "filename": file.name,
-                "path": f"{folder.name}/{file.name}",
-                "text": "",
-                "date": get_capture_date(file),
-            }
+        all_json_sidecars = [
+            file
             for file in sorted(folder.iterdir())
-            if file.is_file() and file.suffix.lower() in IMAGE_EXTENSIONS
+            if file.is_file()
+            and file.suffix.lower() == ".json"
+            and file.name.lower() not in {"manifest.json", "metadata.json"}
         ]
+
+        consumed_sidecars = set()
+        image_files = []
+        for file in sorted(folder.iterdir()):
+            if not file.is_file() or file.suffix.lower() not in IMAGE_EXTENSIONS:
+                continue
+            if file.name.endswith(".browser.jpg"):
+                continue
+
+            sidecar_matches = find_matching_sidecars(file, all_json_sidecars)
+            custom_text, taken_time, consumed = get_sidecar_metadata(sidecar_matches)
+            for matched_sidecar in sidecar_matches:
+                consumed_sidecars.add(matched_sidecar)
+            for parsed_sidecar in consumed:
+                consumed_sidecars.add(parsed_sidecar)
+
+            image_files.append(
+                {
+                    "filename": file.name,
+                    "path": f"{folder.name}/{file.name}",
+                    "text": custom_text,
+                    "date": taken_time or get_capture_date(file),
+                }
+            )
 
         if image_files:
             manifest[folder.name] = image_files
+
+        if DELETE_CONSUMED_SIDECAR_JSON:
+            for sidecar in sorted(consumed_sidecars):
+                try:
+                    sidecar.unlink()
+                except OSError as error:
+                    print(f"Failed to delete sidecar {sidecar}: {error}")
 
     with open(MANIFEST_PATH, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 
     print(f"Manifest created: {MANIFEST_PATH}")
-    print(json.dumps(manifest, indent=2, ensure_ascii=False))
+    manifest_preview = json.dumps(manifest, indent=2, ensure_ascii=False)
+    try:
+        print(manifest_preview)
+    except UnicodeEncodeError:
+        print(manifest_preview.encode("ascii", errors="replace").decode("ascii"))
 
 if __name__ == "__main__":
     build_manifest()
