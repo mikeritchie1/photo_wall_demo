@@ -8,6 +8,10 @@ const stringColorSelect = document.getElementById("stringColorSelect");
 const reverseCheckbox = document.getElementById("reverseCheckbox");
 const swaySlider = document.getElementById("swaySlider");
 const lightColumnsSelect = document.getElementById("lightColumnsSelect");
+const yearStartSlider = document.getElementById("yearStartSlider");
+const yearEndSlider = document.getElementById("yearEndSlider");
+const yearRangeActive = document.getElementById("yearRangeActive");
+const yearRangeValue = document.getElementById("yearRangeValue");
 const textSelect = document.getElementById("textSelect");
 const resetControlsBtn = document.getElementById("resetControlsBtn");
 const wall = document.getElementById("wall");
@@ -30,6 +34,10 @@ let currentLightColor = 'warm';
 let swayPower = parseFloat(swaySlider.value);
 let textMode = 'auto';
 let lightColumnCount = 2;
+let minAvailableYear = null;
+let maxAvailableYear = null;
+let selectedStartYear = null;
+let selectedEndYear = null;
 let lightOffsetY = 0;
 let lastRenderTimeSec = null;
 
@@ -109,11 +117,119 @@ function syncPhotoScaleVars() {
   }
 }
 
+function extractYearFromDate(dateValue) {
+  if (!dateValue) {
+    return null;
+  }
+
+  const text = String(dateValue).trim();
+  const trailingYearMatch = text.match(/(\d{4})$/);
+  if (trailingYearMatch) {
+    return parseInt(trailingYearMatch[1], 10);
+  }
+
+  const anyYearMatch = text.match(/\b(\d{4})\b/);
+  if (anyYearMatch) {
+    return parseInt(anyYearMatch[1], 10);
+  }
+
+  return null;
+}
+
+function deriveAvailableYearBounds() {
+  if (!manifest) {
+    return null;
+  }
+
+  const years = [];
+  for (const images of Object.values(manifest)) {
+    for (const image of images) {
+      const year = extractYearFromDate(image.date);
+      if (year !== null) {
+        years.push(year);
+      }
+    }
+  }
+
+  if (years.length === 0) {
+    return null;
+  }
+
+  return {
+    min: Math.min(...years),
+    max: Math.max(...years)
+  };
+}
+
+function updateYearRangeDisplay() {
+  if (selectedStartYear === null || selectedEndYear === null) {
+    yearRangeValue.textContent = "All years";
+    yearRangeActive.style.left = "0px";
+    yearRangeActive.style.width = "0px";
+    return;
+  }
+
+  const min = minAvailableYear ?? selectedStartYear;
+  const max = maxAvailableYear ?? selectedEndYear;
+  const span = Math.max(1, max - min);
+  const startPercent = ((selectedStartYear - min) / span) * 100;
+  const endPercent = ((selectedEndYear - min) / span) * 100;
+
+  yearRangeActive.style.left = `${startPercent}%`;
+  yearRangeActive.style.width = `${Math.max(1, endPercent - startPercent)}%`;
+
+  yearRangeValue.textContent =
+    selectedStartYear === selectedEndYear
+      ? `${selectedStartYear}`
+      : `${selectedStartYear} - ${selectedEndYear}`;
+}
+
+function initializeYearRangeFromManifest() {
+  const bounds = deriveAvailableYearBounds();
+
+  if (!bounds) {
+    yearStartSlider.disabled = true;
+    yearEndSlider.disabled = true;
+    selectedStartYear = null;
+    selectedEndYear = null;
+    updateYearRangeDisplay();
+    return;
+  }
+
+  minAvailableYear = bounds.min;
+  maxAvailableYear = bounds.max;
+
+  yearStartSlider.disabled = false;
+  yearEndSlider.disabled = false;
+
+  yearStartSlider.min = String(minAvailableYear);
+  yearStartSlider.max = String(maxAvailableYear);
+  yearEndSlider.min = String(minAvailableYear);
+  yearEndSlider.max = String(maxAvailableYear);
+
+  if (selectedStartYear === null || selectedStartYear < minAvailableYear || selectedStartYear > maxAvailableYear) {
+    selectedStartYear = minAvailableYear;
+  }
+  if (selectedEndYear === null || selectedEndYear > maxAvailableYear || selectedEndYear < minAvailableYear) {
+    selectedEndYear = maxAvailableYear;
+  }
+
+  if (selectedStartYear > selectedEndYear) {
+    selectedStartYear = minAvailableYear;
+    selectedEndYear = maxAvailableYear;
+  }
+
+  yearStartSlider.value = String(selectedStartYear);
+  yearEndSlider.value = String(selectedEndYear);
+  updateYearRangeDisplay();
+}
+
 async function loadManifest() {
   try {
     const response = await fetch(MANIFEST_URL);
     manifest = await response.json();
     populateFolderSelect();
+    initializeYearRangeFromManifest();
   } catch (error) {
     console.error("Error loading manifest:", error);
   }
@@ -181,6 +297,35 @@ lightColumnsSelect.addEventListener("change", (event) => {
   resetHideTimer();
 });
 
+function applyYearRangeChange() {
+  updateYearRangeDisplay();
+  resetImageCycle();
+  assignRandomImages();
+  resetHideTimer();
+}
+
+yearStartSlider.addEventListener("input", () => {
+  if (selectedEndYear === null) {
+    return;
+  }
+
+  const startYear = parseInt(yearStartSlider.value, 10);
+  selectedStartYear = Math.min(startYear, selectedEndYear);
+  yearStartSlider.value = String(selectedStartYear);
+  applyYearRangeChange();
+});
+
+yearEndSlider.addEventListener("input", () => {
+  if (selectedStartYear === null) {
+    return;
+  }
+
+  const endYear = parseInt(yearEndSlider.value, 10);
+  selectedEndYear = Math.max(endYear, selectedStartYear);
+  yearEndSlider.value = String(selectedEndYear);
+  applyYearRangeChange();
+});
+
 resetControlsBtn.addEventListener("click", () => {
   resetControlsToDefaults();
 });
@@ -228,11 +373,17 @@ function buildImagePool() {
           text: image.text || "",
           folder,
           date: image.date || "",
+          year: extractYearFromDate(image.date),
           _key: relativePath
         });
       }
     }
-    return pool;
+    return pool.filter((image) => {
+      if (selectedStartYear === null || selectedEndYear === null || image.year === null) {
+        return true;
+      }
+      return image.year >= selectedStartYear && image.year <= selectedEndYear;
+    });
   }
 
   const images = manifest[selectedFolder] || [];
@@ -243,11 +394,17 @@ function buildImagePool() {
       text: image.text || "",
       folder: selectedFolder,
       date: image.date || "",
+      year: extractYearFromDate(image.date),
       _key: relativePath
     });
   }
 
-  return pool;
+  return pool.filter((image) => {
+    if (selectedStartYear === null || selectedEndYear === null || image.year === null) {
+      return true;
+    }
+    return image.year >= selectedStartYear && image.year <= selectedEndYear;
+  });
 }
 
 function resetImageCycle() {
@@ -351,6 +508,14 @@ function resetControlsToDefaults() {
   updateLightStreamVisibility();
   updateCenterPhotoVisibility();
   activeQueuePhotos = sortPhotosForQueue(getActivePhotos());
+
+  if (minAvailableYear !== null && maxAvailableYear !== null) {
+    selectedStartYear = minAvailableYear;
+    selectedEndYear = maxAvailableYear;
+    yearStartSlider.value = String(selectedStartYear);
+    yearEndSlider.value = String(selectedEndYear);
+    updateYearRangeDisplay();
+  }
 
   if (backgroundSelect.querySelector(`option[value="${DEFAULT_CONTROL_VALUES.background}"]`)) {
     backgroundSelect.value = DEFAULT_CONTROL_VALUES.background;
@@ -680,6 +845,7 @@ window.addEventListener("resize", layoutPhotos);
 
 syncPhotoScaleVars();
 layoutPhotos();
+updateYearRangeDisplay();
 hideControls();
 
 // Load manifest and initialize images
