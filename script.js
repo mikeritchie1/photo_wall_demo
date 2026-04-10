@@ -7,6 +7,7 @@ const lightColorSelect = document.getElementById("lightColorSelect");
 const stringColorSelect = document.getElementById("stringColorSelect");
 const reverseCheckbox = document.getElementById("reverseCheckbox");
 const swaySlider = document.getElementById("swaySlider");
+const lightColumnsSelect = document.getElementById("lightColumnsSelect");
 const textSelect = document.getElementById("textSelect");
 const resetControlsBtn = document.getElementById("resetControlsBtn");
 const wall = document.getElementById("wall");
@@ -19,6 +20,7 @@ const PHOTO_BASE_URL = isLocalRuntime ? "images" : R2_BASE_URL;
 const MANIFEST_URL = isLocalRuntime ? "images/manifest.json" : `${R2_BASE_URL}/manifest.json`;
 
 const lightsLeft = document.getElementById("lights-left");
+const lightsCenter = document.getElementById("lights-center");
 const lightsRight = document.getElementById("lights-right");
 
 let hideTimer;
@@ -27,6 +29,7 @@ let verticalSpeed = parseFloat(speedSlider.value);
 let currentLightColor = 'warm';
 let swayPower = parseFloat(swaySlider.value);
 let textMode = 'auto';
+let lightColumnCount = 2;
 let lightOffsetY = 0;
 let lastRenderTimeSec = null;
 
@@ -40,6 +43,7 @@ const DEFAULT_CONTROL_VALUES = {
   speed: "0.5",
   reverse: false,
   sway: "3",
+  lightColumns: "2",
   background: "none",
   lightColor: "warm",
   stringColor: "brown",
@@ -54,6 +58,13 @@ const photos = [
   { container: document.getElementById("photo9-container"), imgEl: document.getElementById("photo9"), textEl: document.getElementById("photo9-text"), column: "left", index: 4, rotation: -4, swayOffset: 3.6 },
   { container: document.getElementById("photo10-container"), imgEl: document.getElementById("photo10"), textEl: document.getElementById("photo10-text"), column: "left", index: 5, rotation:  8, swayOffset: 4.5 },
 
+  { container: document.getElementById("photo13-container"), imgEl: document.getElementById("photo13"), textEl: document.getElementById("photo13-text"), column: "center", index: 0, rotation: -7, swayOffset: 0.2 },
+  { container: document.getElementById("photo14-container"), imgEl: document.getElementById("photo14"), textEl: document.getElementById("photo14-text"), column: "center", index: 1, rotation:  5, swayOffset: 1.1 },
+  { container: document.getElementById("photo15-container"), imgEl: document.getElementById("photo15"), textEl: document.getElementById("photo15-text"), column: "center", index: 2, rotation: -6, swayOffset: 2.0 },
+  { container: document.getElementById("photo16-container"), imgEl: document.getElementById("photo16"), textEl: document.getElementById("photo16-text"), column: "center", index: 3, rotation:  7, swayOffset: 2.9 },
+  { container: document.getElementById("photo17-container"), imgEl: document.getElementById("photo17"), textEl: document.getElementById("photo17-text"), column: "center", index: 4, rotation: -5, swayOffset: 3.8 },
+  { container: document.getElementById("photo18-container"), imgEl: document.getElementById("photo18"), textEl: document.getElementById("photo18-text"), column: "center", index: 5, rotation:  6, swayOffset: 4.7 },
+
   { container: document.getElementById("photo5-container"), imgEl: document.getElementById("photo5"), textEl: document.getElementById("photo5-text"), column: "right", index: 0, rotation: -6, swayOffset: 0.4 },
   { container: document.getElementById("photo6-container"), imgEl: document.getElementById("photo6"), textEl: document.getElementById("photo6-text"), column: "right", index: 1, rotation:  5, swayOffset: 1.3 },
   { container: document.getElementById("photo7-container"), imgEl: document.getElementById("photo7"), textEl: document.getElementById("photo7-text"), column: "right", index: 2, rotation: -7, swayOffset: 2.2 },
@@ -64,15 +75,24 @@ const photos = [
 
 textSelect.value = "auto";
 
-const queueOrderPhotos = [...photos].sort((a, b) => {
-  if (a.index !== b.index) {
-    return a.index - b.index;
+function sortPhotosForQueue(items) {
+  return [...items].sort((a, b) => {
+    if (a.index !== b.index) {
+      return a.index - b.index;
+    }
+    const columnRank = { left: 0, center: 1, right: 2 };
+    return columnRank[a.column] - columnRank[b.column];
+  });
+}
+
+function getActivePhotos() {
+  if (lightColumnCount === 3) {
+    return photos;
   }
-  if (a.column === b.column) {
-    return 0;
-  }
-  return a.column === "left" ? -1 : 1;
-});
+  return photos.filter((photo) => photo.column !== "center");
+}
+
+let activeQueuePhotos = sortPhotosForQueue(getActivePhotos());
 
 let manifest = null;
 let selectedFolder = "all";
@@ -146,6 +166,17 @@ stringColorSelect.addEventListener("change", (event) => {
 
 textSelect.addEventListener("change", (event) => {
   textMode = event.target.value;
+  assignRandomImages();
+  resetHideTimer();
+});
+
+lightColumnsSelect.addEventListener("change", (event) => {
+  lightColumnCount = parseInt(event.target.value, 10) === 3 ? 3 : 2;
+  updateLightStreamVisibility();
+  updateCenterPhotoVisibility();
+  activeQueuePhotos = sortPhotosForQueue(getActivePhotos());
+  layoutLights();
+  layoutPhotos();
   assignRandomImages();
   resetHideTimer();
 });
@@ -260,7 +291,7 @@ function setupClickListeners() {
 }
 
 function assignRandomImages() {
-  for (const photo of queueOrderPhotos) {
+  for (const photo of activeQueuePhotos) {
     assignRandomImageToPhoto(photo);
   }
 }
@@ -314,6 +345,12 @@ function resetControlsToDefaults() {
 
   swaySlider.value = DEFAULT_CONTROL_VALUES.sway;
   swayPower = parseFloat(DEFAULT_CONTROL_VALUES.sway);
+
+  lightColumnsSelect.value = DEFAULT_CONTROL_VALUES.lightColumns;
+  lightColumnCount = parseInt(DEFAULT_CONTROL_VALUES.lightColumns, 10);
+  updateLightStreamVisibility();
+  updateCenterPhotoVisibility();
+  activeQueuePhotos = sortPhotosForQueue(getActivePhotos());
 
   if (backgroundSelect.querySelector(`option[value="${DEFAULT_CONTROL_VALUES.background}"]`)) {
     backgroundSelect.value = DEFAULT_CONTROL_VALUES.background;
@@ -407,11 +444,36 @@ const lightStreams = [
     y: 0
   },
   {
+    el: lightsCenter,
+    column: "center",
+    y: 0
+  },
+  {
     el: lightsRight,
     column: "right",
     y: 0
   }
 ];
+
+function getActiveLightStreams() {
+  if (lightColumnCount === 3) {
+    return lightStreams;
+  }
+  return lightStreams.filter((stream) => stream.column !== "center");
+}
+
+function updateLightStreamVisibility() {
+  lightsCenter.style.display = lightColumnCount === 3 ? "block" : "none";
+}
+
+function updateCenterPhotoVisibility() {
+  const isVisible = lightColumnCount === 3;
+  for (const photo of photos) {
+    if (photo.column === "center") {
+      photo.container.style.display = isVisible ? "block" : "none";
+    }
+  }
+}
 
 function buildLightStream(streamEl) {
   streamEl.innerHTML = "";
@@ -432,7 +494,10 @@ function buildLightStream(streamEl) {
 }
 
 buildLightStream(lightsLeft);
+buildLightStream(lightsCenter);
 buildLightStream(lightsRight);
+updateLightStreamVisibility();
+updateCenterPhotoVisibility();
 
 function getPhotoWidth(photo) {
   return photo.imgEl.offsetWidth || photoWidth;
@@ -451,9 +516,12 @@ function getSpacing(photo) {
 
 function getColumnX(column, width) {
   const halfWidth = width / 2;
-  const rawX = column === "left"
-    ? window.innerWidth * leftXRatio
-    : window.innerWidth * rightXRatio;
+  let rawX = window.innerWidth * rightXRatio;
+  if (column === "left") {
+    rawX = window.innerWidth * leftXRatio;
+  } else if (column === "center") {
+    rawX = window.innerWidth * 0.5;
+  }
 
   const minX = halfWidth + 20;
   const maxX = window.innerWidth - halfWidth - 20;
@@ -465,7 +533,7 @@ function layoutPhotos() {
   const streamHeight = spacing * photosPerColumn;
   const startY = window.innerHeight / 2 - streamHeight / 2;
 
-  for (const photo of photos) {
+  for (const photo of getActivePhotos()) {
     const width = getPhotoWidth(photo);
     photo.x = getColumnX(photo.column, width);
     photo.y = startY + photo.index * spacing + spacing / 2;
@@ -476,10 +544,15 @@ function layoutPhotos() {
 
 function layoutLights() {
   const leftX = getColumnX("left", 70);
+  const centerX = getColumnX("center", 70);
   const rightX = getColumnX("right", 70);
 
-  for (const stream of lightStreams) {
-    const x = stream.column === "left" ? leftX : rightX;
+  for (const stream of getActiveLightStreams()) {
+    const x = stream.column === "left"
+      ? leftX
+      : stream.column === "center"
+      ? centerX
+      : rightX;
     stream.x = x;
   }
 }
@@ -556,9 +629,14 @@ swaySlider.addEventListener("input", () => {
 function updateLights(time, deltaSeconds) {
   const t = time * 0.001;
   lightOffsetY += verticalSpeed * 60 * deltaSeconds;
+  const phaseByColumn = {
+    left: 0,
+    center: 0.75,
+    right: 1.5
+  };
 
-  for (const stream of lightStreams) {
-    const swayX = Math.sin(t * 0.7 + (stream.column === "left" ? 0 : 1.5)) * 6;
+  for (const stream of getActiveLightStreams()) {
+    const swayX = Math.sin(t * 0.7 + phaseByColumn[stream.column]) * 6;
     const wrappedY = ((lightOffsetY % lightBulbSpacing) + lightBulbSpacing) % lightBulbSpacing;
 
     stream.el.style.transform =
@@ -571,7 +649,7 @@ function render(time) {
   const deltaSeconds = lastRenderTimeSec === null ? 0 : (t - lastRenderTimeSec);
   lastRenderTimeSec = t;
 
-  for (const photo of queueOrderPhotos) {
+  for (const photo of activeQueuePhotos) {
     photo.y += verticalSpeed;
     wrapPhoto(photo);
 

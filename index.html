@@ -12,6 +12,7 @@
 <body>
   <div class="wall" id="wall">
     <div class="light-stream" id="lights-left"></div>
+    <div class="light-stream" id="lights-center"></div>
     <div class="light-stream" id="lights-right"></div>
 
     <div class="photo-container" id="photo1-container">
@@ -37,6 +38,31 @@
     <div class="photo-container" id="photo10-container">
       <img src="images/photo1.png" alt="Photo 10" class="photo" id="photo10" />
       <div class="photo-text" id="photo10-text"></div>
+    </div>
+
+    <div class="photo-container" id="photo13-container">
+      <img src="images/photo1.png" alt="Photo 13" class="photo" id="photo13" />
+      <div class="photo-text" id="photo13-text"></div>
+    </div>
+    <div class="photo-container" id="photo14-container">
+      <img src="images/photo1.png" alt="Photo 14" class="photo" id="photo14" />
+      <div class="photo-text" id="photo14-text"></div>
+    </div>
+    <div class="photo-container" id="photo15-container">
+      <img src="images/photo1.png" alt="Photo 15" class="photo" id="photo15" />
+      <div class="photo-text" id="photo15-text"></div>
+    </div>
+    <div class="photo-container" id="photo16-container">
+      <img src="images/photo1.png" alt="Photo 16" class="photo" id="photo16" />
+      <div class="photo-text" id="photo16-text"></div>
+    </div>
+    <div class="photo-container" id="photo17-container">
+      <img src="images/photo1.png" alt="Photo 17" class="photo" id="photo17" />
+      <div class="photo-text" id="photo17-text"></div>
+    </div>
+    <div class="photo-container" id="photo18-container">
+      <img src="images/photo1.png" alt="Photo 18" class="photo" id="photo18" />
+      <div class="photo-text" id="photo18-text"></div>
     </div>
 
     <div class="photo-container" id="photo5-container">
@@ -89,6 +115,14 @@
       <div class="control-group">
         <label for="swaySlider">Sway</label>
         <input type="range" id="swaySlider" min="0" max="10" step="0.1" value="3" />
+      </div>
+
+      <div class="control-group">
+        <label for="lightColumnsSelect">Light Columns</label>
+        <select id="lightColumnsSelect">
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+        </select>
       </div>
     </div>
 
