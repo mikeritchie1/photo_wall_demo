@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).parent
 IMAGES_DIR = PROJECT_ROOT / "images"
 MANIFEST_PATH = IMAGES_DIR / "manifest.json"
 ROOT_MISC_FOLDER_NAME = "Various"
-TARGET_FOLDERS = {"demo", "Afrika Burn 2024"}
+TARGET_FOLDERS = None
 DELETE_ORIGINAL_HEIC = True
 DELETE_CONSUMED_SIDECAR_JSON = False
 
@@ -334,6 +334,38 @@ def ensure_heic_conversions():
         f"HEIC conversion complete: {converted_count} converted, {skipped_count} up-to-date, {deleted_count} originals deleted."
     )
 
+def move_root_images_to_various_folder():
+    if TARGET_FOLDERS is not None and ROOT_MISC_FOLDER_NAME not in TARGET_FOLDERS:
+        return
+
+    various_dir = IMAGES_DIR / ROOT_MISC_FOLDER_NAME
+    various_dir.mkdir(exist_ok=True)
+
+    moved_count = 0
+    skipped_count = 0
+    for file in sorted(IMAGES_DIR.iterdir()):
+        if not file.is_file():
+            continue
+        suffix = file.suffix.lower()
+        if suffix not in IMAGE_EXTENSIONS and suffix not in HEIC_EXTENSIONS:
+            continue
+
+        destination = various_dir / file.name
+        if destination.exists():
+            skipped_count += 1
+            continue
+
+        try:
+            file.rename(destination)
+            moved_count += 1
+        except OSError as error:
+            print(f"Failed to move {file} to {destination}: {error}")
+
+    if moved_count or skipped_count:
+        print(
+            f"Root image move complete: {moved_count} moved to {ROOT_MISC_FOLDER_NAME}, {skipped_count} skipped (already existed)."
+        )
+
 
 def build_manifest():
     manifest = {}
@@ -342,6 +374,7 @@ def build_manifest():
         print(f"Images folder not found: {IMAGES_DIR}")
         return
 
+    move_root_images_to_various_folder()
     ensure_heic_conversions()
 
     # Include images directly inside `images/` under a catch-all folder.
