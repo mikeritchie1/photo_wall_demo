@@ -9,6 +9,7 @@ html, body {
 
 :root {
   --photo-width: 420px;
+  --photo-text-size: 23px;
 }
 
 body {
@@ -84,6 +85,8 @@ body {
   left: 0;
   will-change: transform;
   z-index: 2;
+  --photo-frame-border: clamp(4px, calc(var(--photo-width) / 42), 18px);
+  --photo-caption-gap: clamp(16px, calc(var(--photo-width) / 14), 56px);
 }
 
 .photo-container .photo {
@@ -93,21 +96,24 @@ body {
   height: auto;
   object-fit: contain;
   display: block;
-  border: 10px solid white;
-  border-bottom: 30px solid white;
+  border: var(--photo-frame-border) solid white;
+  border-bottom: var(--photo-caption-gap) solid white;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
 .photo-container .photo-text {
   position: absolute;
-  bottom: 5px;
+  top: calc(100% - (var(--photo-caption-gap) / 2));
+  bottom: auto;
   left: 50%;
-  transform: translateX(-50%);
-  max-width: calc(var(--photo-width) - 140px);
+  transform: translate(-50%, -50%);
+  width: calc(100% - (var(--photo-frame-border) * 2) - 8px);
+  max-width: calc(100% - (var(--photo-frame-border) * 2) - 8px);
   color: black;
   text-align: center;
   font-family: 'Dancing Script', cursive;
-  font-size: 18px;
+  font-size: var(--photo-text-size);
+  line-height: 1;
   font-weight: 400;
   z-index: 3;
   pointer-events: none;

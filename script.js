@@ -73,6 +73,15 @@ let imageCycle = [];
 let imageCycleIndex = 0;
 let lastServedImageKey = null;
 
+function syncPhotoScaleVars() {
+  const textSize = Math.max(12, Math.min(40, photoWidth / 18));
+  document.documentElement.style.setProperty("--photo-width", `${photoWidth}px`);
+  document.documentElement.style.setProperty("--photo-text-size", `${textSize}px`);
+  for (const photo of photos) {
+    photo.textEl.style.fontSize = `${textSize}px`;
+  }
+}
+
 async function loadManifest() {
   try {
     const response = await fetch("images/manifest.json");
@@ -282,7 +291,7 @@ function resetControlsToDefaults() {
 
   sizeSlider.value = DEFAULT_CONTROL_VALUES.size;
   photoWidth = parseFloat(DEFAULT_CONTROL_VALUES.size);
-  document.documentElement.style.setProperty("--photo-width", `${photoWidth}px`);
+  syncPhotoScaleVars();
 
   speedSlider.value = DEFAULT_CONTROL_VALUES.speed;
   reverseCheckbox.checked = DEFAULT_CONTROL_VALUES.reverse;
@@ -500,7 +509,7 @@ controls.addEventListener("click", (event) => {
 
 sizeSlider.addEventListener("input", () => {
   photoWidth = parseFloat(sizeSlider.value);
-  document.documentElement.style.setProperty("--photo-width", `${photoWidth}px`);
+  syncPhotoScaleVars();
   layoutPhotos();
   resetHideTimer();
 });
@@ -576,15 +585,15 @@ function render(time) {
 
 window.addEventListener("resize", layoutPhotos);
 
-document.documentElement.style.setProperty("--photo-width", `${photoWidth}px`);
+syncPhotoScaleVars();
 layoutPhotos();
 hideControls();
 
 // Load manifest and initialize images
 loadManifest().then(() => {
   resetImageCycle();
-  assignRandomImages();
   setupClickListeners();
+  assignRandomImages();
 });
 
 // Populate background selector
