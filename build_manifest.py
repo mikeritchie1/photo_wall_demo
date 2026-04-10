@@ -8,6 +8,11 @@ try:
 except ImportError:
     Image = None
 
+try:
+    import pillow_heif
+except ImportError:
+    pillow_heif = None
+
 # Project structure assumed:
 # your-project/
 #   build_manifest.py
@@ -20,9 +25,12 @@ PROJECT_ROOT = Path(__file__).parent
 IMAGES_DIR = PROJECT_ROOT / "images"
 MANIFEST_PATH = IMAGES_DIR / "manifest.json"
 ROOT_MISC_FOLDER_NAME = "Various"
+TARGET_FOLDERS = None
+DELETE_ORIGINAL_HEIC = True
 
 # Allowed image file extensions
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+HEIC_EXTENSIONS = {".heic", ".heif"}
 
 
 def format_file_mtime(file: Path) -> str:
@@ -124,6 +132,110 @@ def get_capture_date(file: Path) -> str:
 
     return format_file_mtime(file)
 
+def converted_heic_path(source_file: Path) -> Path:
+    return source_file.with_suffix(".jpg")
+
+def is_targeted_file(file: Path) -> bool:
+    try:
+        relative = file.relative_to(IMAGES_DIR)
+    except ValueError:
+        return False
+    if len(relative.parts) == 1:
+        return TARGET_FOLDERS is None
+    if len(relative.parts) < 1:
+        return False
+    if TARGET_FOLDERS is None:
+        return True
+    return relative.parts[0] in TARGET_FOLDERS
+
+def convert_heic_to_jpg(source_file: Path, target_file: Path) -> bool:
+    if Image is None or pillow_heif is None:
+        return False
+
+    try:
+        with Image.open(source_file) as img:
+            exif_bytes = img.info.get("exif")
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+
+            save_kwargs = {"quality": 92}
+            if exif_bytes:
+                save_kwargs["exif"] = exif_bytes
+
+            img.save(target_file, "JPEG", **save_kwargs)
+        return True
+    except Exception as error:
+        print(f"Failed to convert {source_file}: {error}")
+        return False
+
+def ensure_heic_conversions():
+    # Migrate older conversion naming (e.g., IMG_1234.heic.jpg -> IMG_1234.jpg).
+    for legacy_file in IMAGES_DIR.rglob("*.heic.jpg"):
+        if not legacy_file.is_file() or not is_targeted_file(legacy_file):
+            continue
+        modern_file = legacy_file.with_name(legacy_file.name[: -len(".heic.jpg")] + ".jpg")
+        if modern_file.exists():
+            continue
+        try:
+            legacy_file.rename(modern_file)
+        except OSError as error:
+            print(f"Failed to rename legacy converted file {legacy_file}: {error}")
+
+    heic_files = [
+        file
+        for file in IMAGES_DIR.rglob("*")
+        if file.is_file()
+        and file.suffix.lower() in HEIC_EXTENSIONS
+        and is_targeted_file(file)
+    ]
+
+    if not heic_files:
+        return
+
+    if Image is None:
+        print("Pillow is not installed. Skipping HEIC conversion.")
+        return
+
+    if pillow_heif is None:
+        print("pillow-heif is not installed. Skipping HEIC conversion.")
+        print("Install it with: pip install pillow-heif")
+        return
+
+    pillow_heif.register_heif_opener()
+
+    converted_count = 0
+    skipped_count = 0
+    deleted_count = 0
+    for source_file in heic_files:
+        target_file = converted_heic_path(source_file)
+        needs_conversion = (
+            not target_file.exists()
+            or target_file.stat().st_mtime < source_file.stat().st_mtime
+        )
+
+        if not needs_conversion:
+            skipped_count += 1
+            if DELETE_ORIGINAL_HEIC and target_file.exists():
+                try:
+                    source_file.unlink()
+                    deleted_count += 1
+                except OSError as error:
+                    print(f"Failed to delete original {source_file}: {error}")
+            continue
+
+        if convert_heic_to_jpg(source_file, target_file):
+            converted_count += 1
+            if DELETE_ORIGINAL_HEIC and target_file.exists():
+                try:
+                    source_file.unlink()
+                    deleted_count += 1
+                except OSError as error:
+                    print(f"Failed to delete original {source_file}: {error}")
+
+    print(
+        f"HEIC conversion complete: {converted_count} converted, {skipped_count} up-to-date, {deleted_count} originals deleted."
+    )
+
 
 def build_manifest():
     manifest = {}
@@ -131,6 +243,8 @@ def build_manifest():
     if not IMAGES_DIR.exists():
         print(f"Images folder not found: {IMAGES_DIR}")
         return
+
+    ensure_heic_conversions()
 
     root_level_images = [
         {
@@ -147,6 +261,8 @@ def build_manifest():
 
     for folder in sorted(IMAGES_DIR.iterdir()):
         if not folder.is_dir():
+            continue
+        if TARGET_FOLDERS is not None and folder.name not in TARGET_FOLDERS:
             continue
 
         image_files = [
