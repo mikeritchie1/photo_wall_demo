@@ -16,6 +16,7 @@ const isLocalRuntime =
   location.hostname === "localhost" ||
   location.hostname === "127.0.0.1";
 const PHOTO_BASE_URL = isLocalRuntime ? "images" : R2_BASE_URL;
+const MANIFEST_URL = isLocalRuntime ? "images/manifest.json" : `${R2_BASE_URL}/manifest.json`;
 
 const lightsLeft = document.getElementById("lights-left");
 const lightsRight = document.getElementById("lights-right");
@@ -90,7 +91,7 @@ function syncPhotoScaleVars() {
 
 async function loadManifest() {
   try {
-    const response = await fetch("images/manifest.json");
+    const response = await fetch(MANIFEST_URL);
     manifest = await response.json();
     populateFolderSelect();
   } catch (error) {

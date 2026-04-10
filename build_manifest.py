@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).parent
 IMAGES_DIR = PROJECT_ROOT / "images"
 MANIFEST_PATH = IMAGES_DIR / "manifest.json"
 ROOT_MISC_FOLDER_NAME = "Various"
-TARGET_FOLDERS = None
+TARGET_FOLDERS = {"demo", "Afrika Burn 2024"}
 DELETE_ORIGINAL_HEIC = True
 DELETE_CONSUMED_SIDECAR_JSON = False
 
