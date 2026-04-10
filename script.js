@@ -10,6 +10,12 @@ const swaySlider = document.getElementById("swaySlider");
 const textSelect = document.getElementById("textSelect");
 const resetControlsBtn = document.getElementById("resetControlsBtn");
 const wall = document.getElementById("wall");
+const R2_BASE_URL = "https://pub-bd90151148dc4ad4a6dcce4b188be9ac.r2.dev";
+const isLocalRuntime =
+  location.protocol === "file:" ||
+  location.hostname === "localhost" ||
+  location.hostname === "127.0.0.1";
+const PHOTO_BASE_URL = isLocalRuntime ? "images" : R2_BASE_URL;
 
 const lightsLeft = document.getElementById("lights-left");
 const lightsRight = document.getElementById("lights-right");
@@ -166,6 +172,14 @@ function resolveImagePath(image, folder) {
   return `${folder}/${image.filename}`;
 }
 
+function buildPhotoUrl(relativePath) {
+  const encodedPath = relativePath
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  return `${PHOTO_BASE_URL}/${encodedPath}`;
+}
+
 function buildImagePool() {
   if (!manifest) {
     return [];
@@ -178,7 +192,7 @@ function buildImagePool() {
       for (const image of images) {
         const relativePath = resolveImagePath(image, folder);
         pool.push({
-          filename: `images/${relativePath}`,
+          filename: buildPhotoUrl(relativePath),
           text: image.text || "",
           folder,
           date: image.date || "",
@@ -193,7 +207,7 @@ function buildImagePool() {
   for (const image of images) {
     const relativePath = resolveImagePath(image, selectedFolder);
     pool.push({
-      filename: `images/${relativePath}`,
+      filename: buildPhotoUrl(relativePath),
       text: image.text || "",
       folder: selectedFolder,
       date: image.date || "",
