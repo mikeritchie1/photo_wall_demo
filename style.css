@@ -178,22 +178,65 @@ body {
   margin-top: 4px;
 }
 
+.year-range-track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  z-index: 0;
+}
+
 .year-range-track input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
   position: absolute;
   left: 0;
   top: 0;
   width: 220px;
+  height: 18px;
   margin: 0;
   pointer-events: none;
   background: transparent;
+  z-index: 2;
 }
 
 .year-range-track input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
   pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #e8d3a2;
+  background: #2f2f2f;
+  margin-top: -5px;
+}
+
+.year-range-track input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
 }
 
 .year-range-track input[type="range"]::-moz-range-thumb {
   pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #e8d3a2;
+  background: #2f2f2f;
+}
+
+.year-range-track input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+
+.year-range-track input[type="range"]::-moz-range-progress {
+  height: 4px;
+  background: transparent;
 }
 
 .year-range-active {
@@ -202,7 +245,7 @@ body {
   height: 4px;
   border-radius: 999px;
   background: #d8b56f;
-  z-index: 0;
+  z-index: 1;
 }
 
 .year-range-value {

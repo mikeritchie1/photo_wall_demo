@@ -33,7 +33,7 @@ let verticalSpeed = parseFloat(speedSlider.value);
 let currentLightColor = 'warm';
 let swayPower = parseFloat(swaySlider.value);
 let textMode = 'auto';
-let lightColumnCount = 2;
+let lightColumnCount = 3;
 let minAvailableYear = null;
 let maxAvailableYear = null;
 let selectedStartYear = null;
@@ -50,9 +50,9 @@ const DEFAULT_CONTROL_VALUES = {
   size: "420",
   speed: "0.5",
   reverse: false,
-  sway: "3",
-  lightColumns: "2",
-  background: "none",
+  sway: "1.5",
+  lightColumns: "3",
+  background: "space",
   lightColor: "warm",
   stringColor: "brown",
   text: "auto"
@@ -857,5 +857,9 @@ loadManifest().then(() => {
 
 // Populate background selector
 populateBackgroundSelect();
+if (backgroundSelect.querySelector(`option[value="${DEFAULT_CONTROL_VALUES.background}"]`)) {
+  backgroundSelect.value = DEFAULT_CONTROL_VALUES.background;
+}
+applyBackground(backgroundSelect.value);
 
 requestAnimationFrame(render);
