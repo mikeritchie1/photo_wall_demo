@@ -184,13 +184,29 @@ def get_sidecar_candidates_for_image(image_file: Path):
 def find_matching_sidecars(image_file: Path, sidecar_files):
     candidates = get_sidecar_candidates_for_image(image_file)
     matches = []
+
+    def has_safe_boundary(remainder: str) -> bool:
+        if not remainder:
+            return True
+        if remainder[0] in {".", " ", "_", "-", "("}:
+            return True
+        return False
+
+    def candidate_matches_sidecar(candidate: str, sidecar_base: str) -> bool:
+        if sidecar_base == candidate:
+            return True
+
+        if sidecar_base.startswith(candidate):
+            return has_safe_boundary(sidecar_base[len(candidate):])
+
+        if candidate.startswith(sidecar_base):
+            return has_safe_boundary(candidate[len(sidecar_base):])
+
+        return False
+
     for sidecar in sidecar_files:
-        sidecar_name = sidecar.name.lower()
         sidecar_base = sidecar.stem.lower()
-        if any(sidecar_name.startswith(candidate) for candidate in candidates):
-            matches.append(sidecar)
-            continue
-        if any(candidate.startswith(sidecar_base) for candidate in candidates):
+        if any(candidate_matches_sidecar(candidate, sidecar_base) for candidate in candidates):
             matches.append(sidecar)
     return matches
 
