@@ -46,6 +46,7 @@ const rightXRatio = 0.76;
 const photosPerColumn = 6;
 const lightBulbSpacing = 95;
 const MOBILE_BREAKPOINT = 900;
+const PHOTO_WRAP_BUFFER_PX = 36;
 const DEFAULT_CONTROL_VALUES = {
   folder: "all",
   size: "420",
@@ -766,10 +767,10 @@ function wrapPhoto(photo) {
   const totalSpan = spacing * photosPerColumn;
   const halfHeight = getPhotoHeight(photo) / 2;
 
-  if (verticalSpeed > 0 && photo.y - halfHeight > window.innerHeight) {
+  if (verticalSpeed > 0 && photo.y - halfHeight > window.innerHeight + PHOTO_WRAP_BUFFER_PX) {
     photo.y -= totalSpan;
     assignRandomImageToPhoto(photo);
-  } else if (verticalSpeed < 0 && photo.y + halfHeight < 0) {
+  } else if (verticalSpeed < 0 && photo.y + halfHeight < -PHOTO_WRAP_BUFFER_PX) {
     photo.y += totalSpan;
     assignRandomImageToPhoto(photo);
   }
