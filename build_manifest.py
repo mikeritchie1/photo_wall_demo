@@ -171,15 +171,47 @@ def load_json_with_fallbacks(path: Path):
             continue
     return None
 
+def is_google_takeout_numeric_stem(stem: str) -> bool:
+    if len(stem) < 24:
+        return False
+    if "_" not in stem:
+        return False
+    if not stem[-1].isdigit():
+        return False
+    return re.fullmatch(r"[0-9_]+", stem) is not None
+
 def get_sidecar_candidates_for_image(image_file: Path):
-    stem = image_file.stem
-    suffix = image_file.suffix
-    return [
-        f"{stem}{suffix}".lower(),
-        stem.lower(),
-        f"{stem}.heic".lower(),
-        f"{stem}.heif".lower(),
-    ]
+    stem = image_file.stem.lower()
+    suffix = image_file.suffix.lower()
+    base_stem = stem[:-2] if stem.endswith("_n") else stem
+
+    ordered_candidates = []
+
+    def add_candidate(value: str):
+        if value and value not in ordered_candidates:
+            ordered_candidates.append(value)
+
+    # Primary exact candidates for the current file name.
+    add_candidate(f"{stem}{suffix}")
+    add_candidate(stem)
+    add_candidate(f"{stem}.heic")
+    add_candidate(f"{stem}.heif")
+
+    # `_n` copies often share sidecars with the base name.
+    if base_stem != stem:
+        add_candidate(f"{base_stem}{suffix}")
+        add_candidate(base_stem)
+        add_candidate(f"{base_stem}.heic")
+        add_candidate(f"{base_stem}.heif")
+
+    # Google Photos takeout occasionally emits a sidecar stem with one trailing digit missing.
+    if is_google_takeout_numeric_stem(base_stem):
+        truncated = base_stem[:-1]
+        add_candidate(truncated)
+        add_candidate(f"{truncated}.heic")
+        add_candidate(f"{truncated}.heif")
+
+    return ordered_candidates
 
 def find_matching_sidecars(image_file: Path, sidecar_files):
     candidates = get_sidecar_candidates_for_image(image_file)
