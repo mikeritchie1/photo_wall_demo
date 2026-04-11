@@ -24,6 +24,10 @@ const isLocalRuntime =
   location.hostname === "127.0.0.1";
 const PHOTO_BASE_URL = isLocalRuntime ? "images" : R2_BASE_URL;
 const MANIFEST_URL = isLocalRuntime ? "images/manifest.json" : `${R2_BASE_URL}/manifest.json`;
+const GROUPS_URL = isLocalRuntime ? "images/groups.json" : `${R2_BASE_URL}/groups.json`;
+const DEFAULT_CUSTOM_GROUPS = {
+  Friends: ["michael"]
+};
 
 const lightsLeft = document.getElementById("lights-left");
 const lightsCenter = document.getElementById("lights-center");
@@ -110,6 +114,8 @@ let manifest = null;
 let selectedFolder = "all";
 let availablePeople = [];
 let selectedPeople = new Set();
+let selectedGroupName = null;
+let customGroups = { ...DEFAULT_CUSTOM_GROUPS };
 let imageCycle = [];
 let imageCycleIndex = 0;
 let lastServedImageKey = null;
@@ -249,11 +255,69 @@ async function loadManifest() {
   try {
     const response = await fetch(MANIFEST_URL);
     manifest = await response.json();
+    await loadGroups();
     populateFolderSelect();
     initializeYearRangeFromManifest();
     populatePeopleFilter();
   } catch (error) {
     console.error("Error loading manifest:", error);
+  }
+}
+
+function normalizeCustomGroups(rawGroups) {
+  const normalized = {};
+  if (!rawGroups || typeof rawGroups !== "object" || Array.isArray(rawGroups)) {
+    return normalized;
+  }
+
+  for (const [groupName, members] of Object.entries(rawGroups)) {
+    const cleanGroupName = String(groupName || "").trim();
+    if (!cleanGroupName || !Array.isArray(members)) {
+      continue;
+    }
+
+    const seen = new Set();
+    const cleanMembers = [];
+    for (const member of members) {
+      const cleanMember = String(member || "").trim();
+      if (!cleanMember) {
+        continue;
+      }
+      const key = cleanMember.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      cleanMembers.push(cleanMember);
+    }
+
+    normalized[cleanGroupName] = cleanMembers;
+  }
+
+  return normalized;
+}
+
+async function loadGroups() {
+  customGroups = { ...DEFAULT_CUSTOM_GROUPS };
+
+  try {
+    const response = await fetch(GROUPS_URL);
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = await response.json();
+    const candidateGroups = payload && typeof payload === "object" && !Array.isArray(payload) && payload.groups
+      ? payload.groups
+      : payload;
+    const parsedGroups = normalizeCustomGroups(candidateGroups);
+
+    customGroups = {
+      ...DEFAULT_CUSTOM_GROUPS,
+      ...parsedGroups
+    };
+  } catch (error) {
+    console.warn("Unable to load groups.json; using defaults.", error);
   }
 }
 
@@ -518,6 +582,11 @@ function normalizePeopleField(rawPeople) {
 }
 
 function updatePeopleSummary() {
+  if (selectedGroupName) {
+    peopleFilterSummary.textContent = selectedGroupName;
+    return;
+  }
+
   if (selectedPeople.size === 0) {
     peopleFilterSummary.textContent = "All";
     return;
@@ -536,6 +605,62 @@ function applyPeopleFilterChange() {
   resetImageCycle();
   assignRandomImages();
   resetHideTimer();
+}
+
+function getKnownPeopleLookup() {
+  const lookup = new Map();
+  if (!manifest) {
+    return lookup;
+  }
+
+  for (const images of Object.values(manifest)) {
+    for (const image of images) {
+      for (const person of normalizePeopleField(image.people)) {
+        const key = person.toLowerCase();
+        if (!lookup.has(key)) {
+          lookup.set(key, person);
+        }
+      }
+    }
+  }
+
+  return lookup;
+}
+
+function getResolvedGroupMembers(groupName) {
+  const groupMembers = Array.isArray(customGroups[groupName]) ? customGroups[groupName] : [];
+  const knownPeopleLookup = getKnownPeopleLookup();
+  const resolved = [];
+  const seen = new Set();
+
+  for (const member of groupMembers) {
+    const cleanMember = String(member || "").trim();
+    if (!cleanMember) {
+      continue;
+    }
+    const canonical = knownPeopleLookup.get(cleanMember.toLowerCase()) || cleanMember;
+    const key = canonical.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    resolved.push(canonical);
+  }
+
+  return resolved;
+}
+
+function getOrderedCustomGroupNames() {
+  const names = Object.keys(customGroups || {}).filter((name) => Array.isArray(customGroups[name]));
+  return names.sort((a, b) => {
+    if (a.toLowerCase() === "friends") {
+      return -1;
+    }
+    if (b.toLowerCase() === "friends") {
+      return 1;
+    }
+    return a.localeCompare(b, undefined, { sensitivity: "base" });
+  });
 }
 
 function renderPeopleOptions() {
@@ -558,9 +683,38 @@ function renderPeopleOptions() {
       return;
     }
     selectedPeople.clear();
+    selectedGroupName = null;
     renderPeopleOptions();
     applyPeopleFilterChange();
   });
+
+  for (const groupName of getOrderedCustomGroupNames()) {
+    const groupRow = document.createElement("label");
+    groupRow.className = "people-option";
+    const groupCheckbox = document.createElement("input");
+    groupCheckbox.type = "checkbox";
+    groupCheckbox.value = groupName;
+    groupCheckbox.checked = selectedGroupName === groupName;
+    const groupText = document.createElement("span");
+    groupText.textContent = groupName;
+    groupRow.append(groupCheckbox, groupText);
+    peopleOptions.appendChild(groupRow);
+
+    groupCheckbox.addEventListener("change", () => {
+      if (!groupCheckbox.checked) {
+        selectedGroupName = null;
+        selectedPeople.clear();
+        renderPeopleOptions();
+        applyPeopleFilterChange();
+        return;
+      }
+
+      selectedGroupName = groupName;
+      selectedPeople = new Set(getResolvedGroupMembers(groupName));
+      renderPeopleOptions();
+      applyPeopleFilterChange();
+    });
+  }
 
   for (const person of availablePeople) {
     const optionRow = document.createElement("label");
@@ -575,6 +729,7 @@ function renderPeopleOptions() {
     peopleOptions.appendChild(optionRow);
 
     checkbox.addEventListener("change", () => {
+      selectedGroupName = null;
       if (checkbox.checked) {
         selectedPeople.add(person);
       } else {
@@ -603,6 +758,9 @@ function populatePeopleFilter() {
   selectedPeople = new Set(
     Array.from(selectedPeople).filter((person) => availablePeople.includes(person))
   );
+  if (selectedGroupName) {
+    selectedPeople = new Set(getResolvedGroupMembers(selectedGroupName));
+  }
 
   renderPeopleOptions();
   updatePeopleSummary();
@@ -703,6 +861,7 @@ function resetControlsToDefaults() {
 
   textSelect.value = DEFAULT_CONTROL_VALUES.text;
   textMode = DEFAULT_CONTROL_VALUES.text;
+  selectedGroupName = null;
   selectedPeople.clear();
   populatePeopleFilter();
 
