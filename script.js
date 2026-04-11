@@ -701,7 +701,8 @@ function layoutPhotos() {
   for (const photo of getActivePhotos()) {
     const width = getPhotoWidth(photo);
     photo.x = getColumnX(photo.column, width);
-    photo.y = startY + photo.index * spacing + spacing / 2;
+    const columnYOffset = photo.column === "center" ? spacing / 2 : 0;
+    photo.y = startY + photo.index * spacing + spacing / 2 + columnYOffset;
   }
 
   layoutLights();
