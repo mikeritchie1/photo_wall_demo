@@ -45,6 +45,8 @@ const leftXRatio = 0.24;
 const rightXRatio = 0.76;
 const photosPerColumn = 6;
 const lightBulbSpacing = 95;
+const MOBILE_BREAKPOINT = 900;
+const MOBILE_LIGHT_COLUMN_COUNT = 2;
 const DEFAULT_CONTROL_VALUES = {
   folder: "all",
   size: "420",
@@ -107,6 +109,52 @@ let selectedFolder = "all";
 let imageCycle = [];
 let imageCycleIndex = 0;
 let lastServedImageKey = null;
+let hasUserAdjustedSize = false;
+let hasUserAdjustedLightColumns = false;
+
+function isMobileViewport() {
+  return window.innerWidth <= MOBILE_BREAKPOINT;
+}
+
+function getRecommendedPhotoSize() {
+  if (!isMobileViewport()) {
+    return parseFloat(DEFAULT_CONTROL_VALUES.size);
+  }
+  const basedOnViewport = Math.round(window.innerWidth * 0.42);
+  return Math.max(150, Math.min(240, basedOnViewport));
+}
+
+function applyResponsiveDefaults({ force = false } = {}) {
+  const changes = {
+    size: false,
+    columns: false
+  };
+
+  if (!isMobileViewport()) {
+    return changes;
+  }
+
+  if (force || !hasUserAdjustedSize) {
+    const recommendedSize = getRecommendedPhotoSize();
+    if (photoWidth !== recommendedSize) {
+      photoWidth = recommendedSize;
+      sizeSlider.value = String(recommendedSize);
+      syncPhotoScaleVars();
+      changes.size = true;
+    }
+  }
+
+  if ((force || !hasUserAdjustedLightColumns) && lightColumnCount !== MOBILE_LIGHT_COLUMN_COUNT) {
+    lightColumnCount = MOBILE_LIGHT_COLUMN_COUNT;
+    lightColumnsSelect.value = String(MOBILE_LIGHT_COLUMN_COUNT);
+    updateLightStreamVisibility();
+    updateCenterPhotoVisibility();
+    activeQueuePhotos = sortPhotosForQueue(getActivePhotos());
+    changes.columns = true;
+  }
+
+  return changes;
+}
 
 function syncPhotoScaleVars() {
   const textSize = Math.max(12, Math.min(40, photoWidth / 18));
@@ -287,6 +335,7 @@ textSelect.addEventListener("change", (event) => {
 });
 
 lightColumnsSelect.addEventListener("change", (event) => {
+  hasUserAdjustedLightColumns = true;
   lightColumnCount = parseInt(event.target.value, 10) === 3 ? 3 : 2;
   updateLightStreamVisibility();
   updateCenterPhotoVisibility();
@@ -504,6 +553,8 @@ function assignRandomImageToPhoto(photo) {
 }
 
 function resetControlsToDefaults() {
+  hasUserAdjustedSize = false;
+  hasUserAdjustedLightColumns = false;
   selectedFolder = DEFAULT_CONTROL_VALUES.folder;
   folderSelect.value = DEFAULT_CONTROL_VALUES.folder;
 
@@ -545,6 +596,8 @@ function resetControlsToDefaults() {
 
   textSelect.value = DEFAULT_CONTROL_VALUES.text;
   textMode = DEFAULT_CONTROL_VALUES.text;
+
+  applyResponsiveDefaults({ force: true });
 
   layoutPhotos();
   resetImageCycle();
@@ -690,15 +743,19 @@ function getPhotoHeight(photo) {
   return photoWidth;
 }
 
-function getSpacing(photo) {
-  return photoWidth + 80;
+function getSpacing() {
+  const spacingOffset = isMobileViewport() ? 50 : 80;
+  return photoWidth + spacingOffset;
 }
 
 function getColumnX(column, width) {
+  const columnRatios = isMobileViewport()
+    ? { left: 0.32, right: 0.68 }
+    : { left: leftXRatio, right: rightXRatio };
   const halfWidth = width / 2;
-  let rawX = window.innerWidth * rightXRatio;
+  let rawX = window.innerWidth * columnRatios.right;
   if (column === "left") {
-    rawX = window.innerWidth * leftXRatio;
+    rawX = window.innerWidth * columnRatios.left;
   } else if (column === "center") {
     rawX = window.innerWidth * 0.5;
   }
@@ -709,7 +766,7 @@ function getColumnX(column, width) {
 }
 
 function layoutPhotos() {
-  const spacing = photoWidth + 80;
+  const spacing = getSpacing();
   const streamHeight = spacing * photosPerColumn;
   const startY = window.innerHeight / 2 - streamHeight / 2;
 
@@ -739,7 +796,7 @@ function layoutLights() {
 }
 
 function wrapPhoto(photo) {
-  const spacing = getSpacing(photo);
+  const spacing = getSpacing();
   const totalSpan = spacing * photosPerColumn;
   const halfHeight = getPhotoHeight(photo) / 2;
 
@@ -777,6 +834,7 @@ controls.addEventListener("click", (event) => {
 });
 
 sizeSlider.addEventListener("input", () => {
+  hasUserAdjustedSize = true;
   photoWidth = parseFloat(sizeSlider.value);
   syncPhotoScaleVars();
   layoutPhotos();
@@ -857,9 +915,17 @@ function render(time) {
   requestAnimationFrame(render);
 }
 
-window.addEventListener("resize", layoutPhotos);
+window.addEventListener("resize", () => {
+  const responsiveChanges = applyResponsiveDefaults();
+  layoutPhotos();
+  if (responsiveChanges.columns) {
+    resetImageCycle();
+    assignRandomImages();
+  }
+});
 
 syncPhotoScaleVars();
+applyResponsiveDefaults({ force: true });
 layoutPhotos();
 updateYearRangeDisplay();
 hideControls();

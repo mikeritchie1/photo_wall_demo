@@ -15,6 +15,7 @@ html, body {
 body {
   position: relative;
   background: black;
+  touch-action: manipulation;
 }
 
 .wall {
@@ -141,11 +142,18 @@ body {
   z-index: 1000;
   opacity: 1;
   transition: opacity 0.35s ease;
+  width: min(94vw, 1140px);
+  max-height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .control-row {
   display: flex;
   gap: 18px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .controls.hidden {
@@ -157,25 +165,39 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 180px;
+  min-width: 170px;
+  flex: 1 1 170px;
 }
 
 .control-group label {
   font-size: 14px;
 }
 
+.controls select,
+.controls button,
 .controls input[type="range"] {
-  width: 180px;
+  min-height: 36px;
+}
+
+.controls select,
+.controls button {
+  font-size: 14px;
+}
+
+.controls input[type="range"] {
+  width: 100%;
 }
 
 .year-range-group {
-  width: 220px;
+  width: 100%;
+  max-width: 280px;
 }
 
 .year-range-track {
   position: relative;
   height: 18px;
   margin-top: 4px;
+  width: 100%;
 }
 
 .year-range-track::before {
@@ -196,7 +218,7 @@ body {
   position: absolute;
   left: 0;
   top: 0;
-  width: 220px;
+  width: 100%;
   height: 18px;
   margin: 0;
   pointer-events: none;
@@ -266,4 +288,42 @@ body {
 
 #resetControlsBtn:hover {
   background: #3b3b3b;
+}
+
+@media (max-width: 900px) {
+  .controls {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: min(96vw, 700px);
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .control-row {
+    gap: 10px;
+  }
+
+  .control-group {
+    min-width: calc(50% - 8px);
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .control-group label {
+    font-size: 13px;
+  }
+
+  #resetControlsBtn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .controls {
+    width: min(97vw, 420px);
+    padding: 12px;
+  }
+
+  .control-group {
+    min-width: 100%;
+    flex-basis: 100%;
+  }
 }
