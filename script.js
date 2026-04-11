@@ -46,7 +46,6 @@ const rightXRatio = 0.76;
 const photosPerColumn = 6;
 const lightBulbSpacing = 95;
 const MOBILE_BREAKPOINT = 900;
-const MOBILE_LIGHT_COLUMN_COUNT = 2;
 const DEFAULT_CONTROL_VALUES = {
   folder: "all",
   size: "420",
@@ -109,56 +108,24 @@ let selectedFolder = "all";
 let imageCycle = [];
 let imageCycleIndex = 0;
 let lastServedImageKey = null;
-let hasUserAdjustedSize = false;
-let hasUserAdjustedLightColumns = false;
 
 function isMobileViewport() {
   return window.innerWidth <= MOBILE_BREAKPOINT;
 }
 
-function getRecommendedPhotoSize() {
-  if (!isMobileViewport()) {
-    return parseFloat(DEFAULT_CONTROL_VALUES.size);
-  }
-  const basedOnViewport = Math.round(window.innerWidth * 0.42);
-  return Math.max(150, Math.min(240, basedOnViewport));
-}
-
-function applyResponsiveDefaults({ force = false } = {}) {
-  const changes = {
-    size: false,
-    columns: false
-  };
-
-  if (!isMobileViewport()) {
-    return changes;
-  }
-
-  if (force || !hasUserAdjustedSize) {
-    const recommendedSize = getRecommendedPhotoSize();
-    if (photoWidth !== recommendedSize) {
-      photoWidth = recommendedSize;
-      sizeSlider.value = String(recommendedSize);
-      syncPhotoScaleVars();
-      changes.size = true;
-    }
-  }
-
-  if ((force || !hasUserAdjustedLightColumns) && lightColumnCount !== MOBILE_LIGHT_COLUMN_COUNT) {
-    lightColumnCount = MOBILE_LIGHT_COLUMN_COUNT;
-    lightColumnsSelect.value = String(MOBILE_LIGHT_COLUMN_COUNT);
-    updateLightStreamVisibility();
-    updateCenterPhotoVisibility();
-    activeQueuePhotos = sortPhotosForQueue(getActivePhotos());
-    changes.columns = true;
-  }
-
-  return changes;
+function getEffectivePhotoWidth() {
+  const activeColumns = lightColumnCount === 3 ? 3 : 2;
+  const edgePadding = isMobileViewport() ? 22 : 40;
+  const gap = isMobileViewport() ? 18 : 28;
+  const availableWidth = window.innerWidth - (edgePadding * 2) - (gap * (activeColumns - 1));
+  const maxPerColumn = Math.floor(availableWidth / activeColumns);
+  return Math.max(120, Math.min(photoWidth, maxPerColumn));
 }
 
 function syncPhotoScaleVars() {
-  const textSize = Math.max(12, Math.min(40, photoWidth / 18));
-  document.documentElement.style.setProperty("--photo-width", `${photoWidth}px`);
+  const effectivePhotoWidth = getEffectivePhotoWidth();
+  const textSize = Math.max(12, Math.min(40, effectivePhotoWidth / 18));
+  document.documentElement.style.setProperty("--photo-width", `${effectivePhotoWidth}px`);
   document.documentElement.style.setProperty("--photo-text-size", `${textSize}px`);
   for (const photo of photos) {
     photo.textEl.style.fontSize = `${textSize}px`;
@@ -335,8 +302,8 @@ textSelect.addEventListener("change", (event) => {
 });
 
 lightColumnsSelect.addEventListener("change", (event) => {
-  hasUserAdjustedLightColumns = true;
   lightColumnCount = parseInt(event.target.value, 10) === 3 ? 3 : 2;
+  syncPhotoScaleVars();
   updateLightStreamVisibility();
   updateCenterPhotoVisibility();
   activeQueuePhotos = sortPhotosForQueue(getActivePhotos());
@@ -553,8 +520,6 @@ function assignRandomImageToPhoto(photo) {
 }
 
 function resetControlsToDefaults() {
-  hasUserAdjustedSize = false;
-  hasUserAdjustedLightColumns = false;
   selectedFolder = DEFAULT_CONTROL_VALUES.folder;
   folderSelect.value = DEFAULT_CONTROL_VALUES.folder;
 
@@ -596,8 +561,6 @@ function resetControlsToDefaults() {
 
   textSelect.value = DEFAULT_CONTROL_VALUES.text;
   textMode = DEFAULT_CONTROL_VALUES.text;
-
-  applyResponsiveDefaults({ force: true });
 
   layoutPhotos();
   resetImageCycle();
@@ -744,13 +707,16 @@ function getPhotoHeight(photo) {
 }
 
 function getSpacing() {
-  const spacingOffset = isMobileViewport() ? 50 : 80;
-  return photoWidth + spacingOffset;
+  const effectivePhotoWidth = getEffectivePhotoWidth();
+  const spacingOffset = isMobileViewport() ? 110 : 80;
+  return effectivePhotoWidth + spacingOffset;
 }
 
 function getColumnX(column, width) {
-  const columnRatios = isMobileViewport()
-    ? { left: 0.32, right: 0.68 }
+  const columnRatios = isMobileViewport() && lightColumnCount === 3
+    ? { left: 0.2, right: 0.8 }
+    : isMobileViewport()
+    ? { left: 0.28, right: 0.72 }
     : { left: leftXRatio, right: rightXRatio };
   const halfWidth = width / 2;
   let rawX = window.innerWidth * columnRatios.right;
@@ -834,7 +800,6 @@ controls.addEventListener("click", (event) => {
 });
 
 sizeSlider.addEventListener("input", () => {
-  hasUserAdjustedSize = true;
   photoWidth = parseFloat(sizeSlider.value);
   syncPhotoScaleVars();
   layoutPhotos();
@@ -916,16 +881,11 @@ function render(time) {
 }
 
 window.addEventListener("resize", () => {
-  const responsiveChanges = applyResponsiveDefaults();
+  syncPhotoScaleVars();
   layoutPhotos();
-  if (responsiveChanges.columns) {
-    resetImageCycle();
-    assignRandomImages();
-  }
 });
 
 syncPhotoScaleVars();
-applyResponsiveDefaults({ force: true });
 layoutPhotos();
 updateYearRangeDisplay();
 hideControls();
