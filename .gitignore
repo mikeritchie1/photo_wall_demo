@@ -1,6 +1,7 @@
 images/**
 !images/.gitkeep
 !images/manifest.json
+!images/groups.json
 !images/demo/
 !images/demo/**
 __pycache__/
