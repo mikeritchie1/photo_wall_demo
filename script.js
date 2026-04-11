@@ -453,39 +453,54 @@ function assignRandomImages() {
   }
 }
 
-function assignRandomImageToPhoto(photo) {
-  const imageData = getNextImage();
-  photo.imgEl.src = imageData.filename;
-
-  if (textMode === 'disabled') {
-    photo.textEl.textContent = '';
-    return;
+function getDisplayTextForImage(imageData) {
+  if (textMode === "disabled") {
+    return "";
   }
 
-  const customText = (imageData.text || '').trim();
+  const customText = (imageData.text || "").trim();
   if (customText) {
-    photo.textEl.textContent = customText;
-    return;
+    return customText;
   }
 
-  let displayText = '';
-  switch(textMode) {
-    case 'auto':
-      displayText = imageData.folder.toLowerCase() === 'various'
+  switch (textMode) {
+    case "auto":
+      return imageData.folder.toLowerCase() === "various"
         ? imageData.date
         : imageData.folder;
-      break;
-    case 'custom':
-      displayText = imageData.text;
-      break;
-    case 'name':
-      displayText = imageData.folder;
-      break;
-    case 'date':
-      displayText = imageData.date;
-      break;
+    case "custom":
+      return imageData.text;
+    case "name":
+      return imageData.folder;
+    case "date":
+      return imageData.date;
+    default:
+      return "";
   }
-  photo.textEl.textContent = displayText;
+}
+
+function assignRandomImageToPhoto(photo) {
+  const imageData = getNextImage();
+  const nextCaption = getDisplayTextForImage(imageData);
+  const requestId = (photo.pendingRequestId || 0) + 1;
+  photo.pendingRequestId = requestId;
+
+  const finalizeCaptionUpdate = () => {
+    if (photo.pendingRequestId !== requestId) {
+      return;
+    }
+    photo.textEl.textContent = nextCaption;
+    photo.imgEl.onload = null;
+    photo.imgEl.onerror = null;
+  };
+
+  photo.imgEl.onload = finalizeCaptionUpdate;
+  photo.imgEl.onerror = finalizeCaptionUpdate;
+  photo.imgEl.src = imageData.filename;
+
+  if (photo.imgEl.complete) {
+    finalizeCaptionUpdate();
+  }
 }
 
 function resetControlsToDefaults() {
