@@ -13,6 +13,8 @@ const yearEndSlider = document.getElementById("yearEndSlider");
 const yearRangeActive = document.getElementById("yearRangeActive");
 const yearRangeValue = document.getElementById("yearRangeValue");
 const textSelect = document.getElementById("textSelect");
+const peopleFilterSummary = document.getElementById("peopleFilterSummary");
+const peopleOptions = document.getElementById("peopleOptions");
 const resetControlsBtn = document.getElementById("resetControlsBtn");
 const wall = document.getElementById("wall");
 const R2_BASE_URL = "https://pub-bd90151148dc4ad4a6dcce4b188be9ac.r2.dev";
@@ -106,9 +108,12 @@ let activeQueuePhotos = sortPhotosForQueue(getActivePhotos());
 
 let manifest = null;
 let selectedFolder = "all";
+let availablePeople = [];
+let selectedPeople = new Set();
 let imageCycle = [];
 let imageCycleIndex = 0;
 let lastServedImageKey = null;
+let hasAvailableImages = true;
 
 function isMobileViewport() {
   return window.innerWidth <= MOBILE_BREAKPOINT;
@@ -246,6 +251,7 @@ async function loadManifest() {
     manifest = await response.json();
     populateFolderSelect();
     initializeYearRangeFromManifest();
+    populatePeopleFilter();
   } catch (error) {
     console.error("Error loading manifest:", error);
   }
@@ -276,6 +282,7 @@ function populateFolderSelect() {
 
 folderSelect.addEventListener("change", (event) => {
   selectedFolder = event.target.value;
+  populatePeopleFilter();
   resetImageCycle();
   assignRandomImages();
   resetHideTimer();
@@ -316,6 +323,7 @@ lightColumnsSelect.addEventListener("change", (event) => {
 
 function applyYearRangeChange() {
   updateYearRangeDisplay();
+  populatePeopleFilter();
   resetImageCycle();
   assignRandomImages();
   resetHideTimer();
@@ -374,7 +382,30 @@ function buildPhotoUrl(relativePath) {
   return `${PHOTO_BASE_URL}/${encodedPath}`;
 }
 
-function buildImagePool() {
+function imageMatchesActiveFilters(image, { ignorePerson = false } = {}) {
+  const inYearRange =
+    selectedStartYear === null ||
+    selectedEndYear === null ||
+    image.year === null ||
+    (image.year >= selectedStartYear && image.year <= selectedEndYear);
+  if (!inYearRange) {
+    return false;
+  }
+
+  if (ignorePerson || selectedPeople.size === 0) {
+    return true;
+  }
+
+  const peopleInImage = new Set(image.people || []);
+  for (const selectedPerson of selectedPeople) {
+    if (!peopleInImage.has(selectedPerson)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function buildImagePool({ ignorePerson = false } = {}) {
   if (!manifest) {
     return [];
   }
@@ -388,6 +419,7 @@ function buildImagePool() {
         pool.push({
           filename: buildPhotoUrl(relativePath),
           text: image.text || "",
+          people: normalizePeopleField(image.people),
           folder,
           date: image.date || "",
           year: extractYearFromDate(image.date),
@@ -395,12 +427,7 @@ function buildImagePool() {
         });
       }
     }
-    return pool.filter((image) => {
-      if (selectedStartYear === null || selectedEndYear === null || image.year === null) {
-        return true;
-      }
-      return image.year >= selectedStartYear && image.year <= selectedEndYear;
-    });
+    return pool.filter((image) => imageMatchesActiveFilters(image, { ignorePerson }));
   }
 
   const images = manifest[selectedFolder] || [];
@@ -409,6 +436,7 @@ function buildImagePool() {
     pool.push({
       filename: buildPhotoUrl(relativePath),
       text: image.text || "",
+      people: normalizePeopleField(image.people),
       folder: selectedFolder,
       date: image.date || "",
       year: extractYearFromDate(image.date),
@@ -416,18 +444,15 @@ function buildImagePool() {
     });
   }
 
-  return pool.filter((image) => {
-    if (selectedStartYear === null || selectedEndYear === null || image.year === null) {
-      return true;
-    }
-    return image.year >= selectedStartYear && image.year <= selectedEndYear;
-  });
+  return pool.filter((image) => imageMatchesActiveFilters(image, { ignorePerson }));
 }
 
 function resetImageCycle() {
   const pool = buildImagePool();
   imageCycle = shuffleArray(pool);
   imageCycleIndex = 0;
+  hasAvailableImages = imageCycle.length > 0;
+  updateCenterPhotoVisibility();
 
   // Prevent the first image in the new cycle from repeating the previous image.
   if (imageCycle.length > 1 && lastServedImageKey && imageCycle[0]._key === lastServedImageKey) {
@@ -437,8 +462,8 @@ function resetImageCycle() {
 }
 
 function getNextImage() {
-  if (!manifest) {
-    return { filename: "images/photo1.png", text: "", folder: "test", date: "", _key: "fallback/photo1" };
+  if (!manifest || !hasAvailableImages) {
+    return null;
   }
 
   if (imageCycle.length === 0 || imageCycleIndex >= imageCycle.length) {
@@ -446,7 +471,7 @@ function getNextImage() {
   }
 
   if (imageCycle.length === 0) {
-    return { filename: "images/photo1.png", text: "", folder: "test", date: "", _key: "fallback/photo1" };
+    return null;
   }
 
   const imageData = imageCycle[imageCycleIndex];
@@ -468,6 +493,119 @@ function assignRandomImages() {
   for (const photo of activeQueuePhotos) {
     assignRandomImageToPhoto(photo);
   }
+}
+
+function normalizePeopleField(rawPeople) {
+  if (!Array.isArray(rawPeople)) {
+    return [];
+  }
+
+  const cleaned = [];
+  const seen = new Set();
+  for (const person of rawPeople) {
+    const normalized = String(person || "").trim();
+    if (!normalized) {
+      continue;
+    }
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    cleaned.push(normalized);
+  }
+  return cleaned;
+}
+
+function updatePeopleSummary() {
+  if (selectedPeople.size === 0) {
+    peopleFilterSummary.textContent = "All";
+    return;
+  }
+
+  if (selectedPeople.size === 1) {
+    peopleFilterSummary.textContent = Array.from(selectedPeople)[0];
+    return;
+  }
+
+  peopleFilterSummary.textContent = `${selectedPeople.size} selected`;
+}
+
+function applyPeopleFilterChange() {
+  updatePeopleSummary();
+  resetImageCycle();
+  assignRandomImages();
+  resetHideTimer();
+}
+
+function renderPeopleOptions() {
+  peopleOptions.innerHTML = "";
+
+  const allOptionRow = document.createElement("label");
+  allOptionRow.className = "people-option";
+  const allCheckbox = document.createElement("input");
+  allCheckbox.type = "checkbox";
+  allCheckbox.id = "peopleAllOption";
+  allCheckbox.checked = selectedPeople.size === 0;
+  const allText = document.createElement("span");
+  allText.textContent = "All";
+  allOptionRow.append(allCheckbox, allText);
+  peopleOptions.appendChild(allOptionRow);
+
+  allCheckbox.addEventListener("change", () => {
+    if (!allCheckbox.checked) {
+      allCheckbox.checked = true;
+      return;
+    }
+    selectedPeople.clear();
+    renderPeopleOptions();
+    applyPeopleFilterChange();
+  });
+
+  for (const person of availablePeople) {
+    const optionRow = document.createElement("label");
+    optionRow.className = "people-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = person;
+    checkbox.checked = selectedPeople.has(person);
+    const text = document.createElement("span");
+    text.textContent = person;
+    optionRow.append(checkbox, text);
+    peopleOptions.appendChild(optionRow);
+
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        selectedPeople.add(person);
+      } else {
+        selectedPeople.delete(person);
+      }
+      renderPeopleOptions();
+      applyPeopleFilterChange();
+    });
+  }
+}
+
+function populatePeopleFilter() {
+  availablePeople = [];
+  if (manifest) {
+    const uniquePeople = new Set();
+    for (const image of buildImagePool({ ignorePerson: true })) {
+      for (const person of image.people || []) {
+        uniquePeople.add(person);
+      }
+    }
+    availablePeople = Array.from(uniquePeople).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }
+
+  selectedPeople = new Set(
+    Array.from(selectedPeople).filter((person) => availablePeople.includes(person))
+  );
+
+  renderPeopleOptions();
+  updatePeopleSummary();
 }
 
 function getDisplayTextForImage(imageData) {
@@ -498,6 +636,9 @@ function getDisplayTextForImage(imageData) {
 
 function assignRandomImageToPhoto(photo) {
   const imageData = getNextImage();
+  if (!imageData) {
+    return;
+  }
   const nextCaption = getDisplayTextForImage(imageData);
   const requestId = (photo.pendingRequestId || 0) + 1;
   photo.pendingRequestId = requestId;
@@ -562,6 +703,8 @@ function resetControlsToDefaults() {
 
   textSelect.value = DEFAULT_CONTROL_VALUES.text;
   textMode = DEFAULT_CONTROL_VALUES.text;
+  selectedPeople.clear();
+  populatePeopleFilter();
 
   layoutPhotos();
   resetImageCycle();
@@ -664,11 +807,16 @@ function updateLightStreamVisibility() {
 }
 
 function updateCenterPhotoVisibility() {
+  if (!hasAvailableImages) {
+    for (const photo of photos) {
+      photo.container.style.display = "none";
+    }
+    return;
+  }
+
   const isVisible = lightColumnCount === 3;
   for (const photo of photos) {
-    if (photo.column === "center") {
-      photo.container.style.display = isVisible ? "block" : "none";
-    }
+    photo.container.style.display = photo.column === "center" ? (isVisible ? "block" : "none") : "block";
   }
 }
 

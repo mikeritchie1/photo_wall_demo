@@ -210,9 +210,39 @@ def find_matching_sidecars(image_file: Path, sidecar_files):
             matches.append(sidecar)
     return matches
 
+def extract_people_from_sidecar_data(data: dict) -> list[str]:
+    people = []
+    seen = set()
+
+    def add_person(value):
+        name = str(value or "").strip()
+        if not name:
+            return
+        key = name.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        people.append(name)
+
+    for key in ("people", "peopleInPhoto", "persons"):
+        raw_people = data.get(key)
+        if not isinstance(raw_people, list):
+            continue
+        for person in raw_people:
+            if isinstance(person, str):
+                add_person(person)
+                continue
+            if isinstance(person, dict):
+                add_person(person.get("name"))
+                add_person(person.get("personName"))
+
+    return people
+
 def get_sidecar_metadata(sidecar_files):
     description = ""
     photo_taken = None
+    people = []
+    seen_people = set()
     consumed = []
 
     for sidecar in sidecar_files:
@@ -225,6 +255,13 @@ def get_sidecar_metadata(sidecar_files):
         raw_description = data.get("description")
         if isinstance(raw_description, str) and raw_description.strip():
             description = raw_description.strip()
+
+        for person in extract_people_from_sidecar_data(data):
+            key = person.lower()
+            if key in seen_people:
+                continue
+            seen_people.add(key)
+            people.append(person)
 
         photo_taken_time = data.get("photoTakenTime")
         if isinstance(photo_taken_time, dict):
@@ -260,7 +297,7 @@ def get_sidecar_metadata(sidecar_files):
                             except ValueError:
                                 photo_taken = None
 
-    return description, photo_taken, consumed
+    return description, photo_taken, people, consumed
 
 def convert_heic_to_jpg(source_file: Path, target_file: Path) -> bool:
     if Image is None or pillow_heif is None:
@@ -413,7 +450,7 @@ def build_manifest():
                 continue
 
             sidecar_matches = find_matching_sidecars(file, root_json_sidecars)
-            custom_text, taken_time, consumed = get_sidecar_metadata(sidecar_matches)
+            custom_text, taken_time, people, consumed = get_sidecar_metadata(sidecar_matches)
             for matched_sidecar in sidecar_matches:
                 root_consumed_sidecars.add(matched_sidecar)
             for parsed_sidecar in consumed:
@@ -425,6 +462,7 @@ def build_manifest():
                     "path": file.name,
                     "text": custom_text,
                     "date": taken_time or get_capture_date(file),
+                    "people": people,
                 }
             )
 
@@ -461,7 +499,7 @@ def build_manifest():
                 continue
 
             sidecar_matches = find_matching_sidecars(file, all_json_sidecars)
-            custom_text, taken_time, consumed = get_sidecar_metadata(sidecar_matches)
+            custom_text, taken_time, people, consumed = get_sidecar_metadata(sidecar_matches)
             for matched_sidecar in sidecar_matches:
                 consumed_sidecars.add(matched_sidecar)
             for parsed_sidecar in consumed:
@@ -473,6 +511,7 @@ def build_manifest():
                     "path": f"{folder.name}/{file.name}",
                     "text": custom_text,
                     "date": taken_time or get_capture_date(file),
+                    "people": people,
                 }
             )
 

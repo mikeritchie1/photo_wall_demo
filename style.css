@@ -188,6 +188,74 @@ body {
   width: 100%;
 }
 
+.people-filter {
+  position: relative;
+  width: 100%;
+  border: 1px solid #5a5a5a;
+  border-radius: 8px;
+  background: #1f1f1f;
+}
+
+.people-filter summary {
+  list-style: none;
+  cursor: pointer;
+  min-height: 36px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  font-weight: 400;
+  color: #ffffff;
+  line-height: 1.2;
+  user-select: none;
+}
+
+.people-filter summary::-webkit-details-marker {
+  display: none;
+}
+
+#peopleFilterSummary {
+  font-family: Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: #ffffff !important;
+}
+
+.people-options {
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid #3f3f3f;
+  padding: 6px 0;
+}
+
+.people-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.people-option span {
+  font-family: Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: #ffffff !important;
+}
+
+.people-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.people-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
 .year-range-group {
   width: 100%;
   max-width: 280px;
