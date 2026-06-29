@@ -1,6 +1,8 @@
 # Photo Wall
 
-A demo of an animated personal photo wall — photos from cloud storage displayed as floating polaroids strung on fairy lights, with rich filtering powered by Google Photos metadata.
+> **Demo version.** This is a sanitised copy of the private repo with all personal data, real API credentials, and live service connections removed. It's intended to show the structure and code rather than the running product.
+
+A browser-based screensaver / ambient display for your personal photo library. Point it at your Google Photos collection and it turns any screen into a living photo wall — photos drift past as polaroids hanging from fairy lights, filterable by person, date, and album.
 
 ## Demo
 
