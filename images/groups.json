@@ -1,9 +1,5 @@
 {
   "groups": {
-    "Friends": [
-      "Michael Ritchie",
-      "Adam De Waal",
-      "Reg Grobler"
-    ]
+    "Friends": ["Alice", "Bob", "Charlie", "Diana", "Evan"]
   }
 }

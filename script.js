@@ -17,7 +17,7 @@ const peopleFilterSummary = document.getElementById("peopleFilterSummary");
 const peopleOptions = document.getElementById("peopleOptions");
 const resetControlsBtn = document.getElementById("resetControlsBtn");
 const wall = document.getElementById("wall");
-const R2_BASE_URL = "https://pub-bd90151148dc4ad4a6dcce4b188be9ac.r2.dev";
+const R2_BASE_URL = "YOUR_CLOUDFLARE_R2_PUBLIC_URL";
 const isLocalRuntime =
   location.protocol === "file:" ||
   location.hostname === "localhost" ||
@@ -26,7 +26,7 @@ const PHOTO_BASE_URL = isLocalRuntime ? "images" : R2_BASE_URL;
 const MANIFEST_URL = isLocalRuntime ? "images/manifest.json" : `${R2_BASE_URL}/manifest.json`;
 const GROUPS_URL = isLocalRuntime ? "images/groups.json" : `${R2_BASE_URL}/groups.json`;
 const DEFAULT_CUSTOM_GROUPS = {
-  Friends: ["michael"]
+  Friends: ["alice"]
 };
 
 const lightsLeft = document.getElementById("lights-left");
